@@ -82,6 +82,7 @@ install_connector() {
 
 apply_fix() {
   cp $SRC_DIR/singer-connectors/$1/catalog.clj $VENV_DIR/$1/src/tap_mssql/
+  cp $SRC_DIR/singer-connectors/$1/message.clj $VENV_DIR/$1/src/tap_mssql/singer
 }
 
 clone_connector() {
