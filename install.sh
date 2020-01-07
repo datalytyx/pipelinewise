@@ -149,7 +149,7 @@ make_virtualenv pipelinewise
 #install_connector tap-kafka
 clone_connector tap-mssql
 install_connector tap-mysql
-#install_connector tap-postgres
+install_connector tap-postgres
 #install_connector tap-s3-csv
 #install_connector tap-salesforce
 #install_connector tap-snowflake
