@@ -92,6 +92,25 @@ install_connector() {
     make_virtualenv $1
 }
 
+clone_connector() {
+    echo
+    echo "--------------------------------------------------------------------------"
+    echo "Cloning $1 connector..."
+    echo "--------------------------------------------------------------------------"
+    cd $SRC_DIR/singer-connectors/$1
+    URL=$(head -n 1 git-clone.txt)
+    cd $VENV_DIR
+    if [ ! -d $VENV_DIR/$1 ]; then
+        git clone $URL
+        rm -rf $VENV_DIR/.git
+    fi
+    apply_fix tap-mssql
+}
+
+apply_fix() {
+  cp $SRC_DIR/singer-connectors/$1/catalog.clj $VENV_DIR/$1/src/tap_mssql/
+}
+
 print_installed_connectors() {
     cd $SRC_DIR
 
@@ -104,9 +123,14 @@ print_installed_connectors() {
     echo "-------------------- -------"
 
     for i in `ls $VENV_DIR`; do
-        source $VENV_DIR/$i/bin/activate
-        VERSION=`python3 -m pip list | grep $i | awk '{print $2}'`
-        printf "%-20s %s\n" $i "$VERSION"
+      if [ $i != "tap-mssql" ]; then
+          source $VENV_DIR/$i/bin/activate
+          VERSION=`python3 -m pip list | grep $i | awk '{print $2}'`
+      else
+          VERSION=`sed -n 3p $VENV_DIR/$i/CHANGELOG.md | cut -c4-`
+      fi
+      printf "%-20s %s\n" $i "$VERSION"
+
     done
 
     if [[ $CONNECTORS != "all" ]]; then
@@ -160,6 +184,7 @@ make_virtualenv pipelinewise
 DEFAULT_CONNECTORS=(
     tap-jira
     tap-kafka
+    tap-mssql
     tap-mysql
     tap-postgres
     tap-s3-csv
@@ -180,14 +205,23 @@ EXTRA_CONNECTORS=(
 # Install only the default connectors if --connectors argument not passed
 if [[ -z $CONNECTORS ]]; then
     for i in ${DEFAULT_CONNECTORS[@]}; do
-        install_connector $i
+        if [ $i == "tap-mssql" ]; then
+            clone_connector tap-mssql
+        else
+            install_connector $i
+        fi
+
     done
 
 
 # Install every avaliable connectors if --connectors=all passed
 elif [[ $CONNECTORS == "all" ]]; then
     for i in ${DEFAULT_CONNECTORS[@]}; do
-        install_connector $i
+        if [ $i == "tap-mssql"]; then
+            clone_connector tap-mssql
+        else
+            install_connector $i
+        fi
     done
     for i in ${EXTRA_CONNECTORS[@]}; do
         install_connector $i
@@ -198,7 +232,11 @@ elif [[ ! -z $CONNECTORS ]]; then
     OLDIFS=$IFS
     IFS=,
     for connector in $CONNECTORS; do
-        install_connector $connector
+      if [ $connector == "tap-mssql"]; then
+          clone_connector tap-mssql
+      else
+          install_connector $connector
+      fi
     done
     IFS=$OLDIFS
 fi
