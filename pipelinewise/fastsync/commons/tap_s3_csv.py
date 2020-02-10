@@ -113,7 +113,7 @@ class FastSyncTapS3Csv:
         :return: None
         """
         bucket = self.connection_config['bucket']
-        filename = '{}_{}'.format(bucket, s3_path)
+        filename = '{}_{}'.format(bucket, s3_path.replace("/", "_"))
         filepath = os.path.join(temp_dir, filename)
 
         s3_file_handle = S3Helper.get_file_handle(self.connection_config, s3_path, filepath)
