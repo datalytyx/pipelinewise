@@ -1,5 +1,6 @@
 import csv
 import gzip
+import os
 import re
 import sys
 from datetime import datetime
@@ -45,11 +46,12 @@ class FastSyncTapS3Csv:
         # look in tables array for the full specs dict of given table
         return next(filter(lambda x: x['table_name'] == table_name, self.connection_config['tables']))
 
-    def copy_table(self, table_name: str, file_path: str) -> None:
+    def copy_table(self, table_name: str, file_path: str, temp_dir: str) -> None:
         """
         Copies data from all csv files that match the search_pattern and into the csv file in file_path
         :param table_name: Name of the table
         :param file_path: Path of the gzip compressed csv file into which data is copied
+        :param temp_dir: Path of temporary directory
         :return: None
         """
         if not re.match(r'^.+\.csv\.gz$', file_path):
@@ -76,7 +78,7 @@ class FastSyncTapS3Csv:
         for s3_file in s3_files:
 
             # this function will add records to the `records` list passed to it and add to the `headers` set as well
-            self._get_file_records(s3_file['key'], table_spec, records, headers)
+            self._get_file_records(s3_file['key'], table_spec, records, headers, temp_dir)
 
             # check if the current file has the most recent modification date
             if max_last_modified is None or max_last_modified < s3_file['last_modified']:
@@ -100,7 +102,7 @@ class FastSyncTapS3Csv:
             writer.writerows(records)
 
     # pylint: disable=too-many-locals
-    def _get_file_records(self, s3_path: str, table_spec: Dict, records: List[Dict], headers: Set) -> None:
+    def _get_file_records(self, s3_path: str, table_spec: Dict, records: List[Dict], headers: Set, temp_dir: str) -> None:
         """
         Reads the file in s3_path and inserts the rows in records
         :param config: tap connection configuration
@@ -111,8 +113,10 @@ class FastSyncTapS3Csv:
         :return: None
         """
         bucket = self.connection_config['bucket']
+        filename = '{}_{}'.format(bucket, s3_path.replace("/", "_"))
+        filepath = os.path.join(temp_dir, filename)
 
-        s3_file_handle = S3Helper.get_file_handle(self.connection_config, s3_path)
+        s3_file_handle = S3Helper.get_file_handle(self.connection_config, s3_path, filepath)
 
         # We observed data whose field size exceeded the default maximum of
         # 131072. We believe the primary consequence of the following setting
@@ -124,11 +128,11 @@ class FastSyncTapS3Csv:
         csv.field_size_limit(sys.maxsize)
 
         # pylint:disable=protected-access
-        iterator = singer_encodings_csv.get_row_iterator(s3_file_handle._raw_stream, table_spec)
+        # iterator = singer_encodings_csv.get_row_iterator(s3_file_handle._raw_stream, table_spec)
 
         records_copied = len(records)
 
-        for row in iterator:
+        for row in csv.DictReader(open(filepath)):
             now_datetime = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
             custom_columns = {
                 S3Helper.SDC_SOURCE_BUCKET_COLUMN: bucket,
@@ -152,6 +156,7 @@ class FastSyncTapS3Csv:
             headers.update(record.keys())
 
             records_copied += 1
+        os.remove(filepath)
 
     def map_column_types_to_target(self, filepath: str, table: str):
 
@@ -350,7 +355,7 @@ class S3Helper:
 
     @classmethod
     @retry_pattern()
-    def get_file_handle(cls, config, s3_path):
+    def get_file_handle(cls, config, s3_path, filepath='/temp.csv'):
         bucket = config['bucket']
         aws_endpoint_url = config.get('aws_endpoint_url')
 
@@ -361,5 +366,6 @@ class S3Helper:
             s3_client = boto3.resource('s3')
 
         s3_bucket = s3_client.Bucket(bucket)
-        s3_object = s3_bucket.Object(s3_path)
-        return s3_object.get()['Body']
+        s3_bucket.download_file(s3_path, filepath)
+        # s3_object = s3_bucket.Object(s3_path)
+        # return s3_object.get()['Body']
