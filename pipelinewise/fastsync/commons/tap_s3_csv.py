@@ -128,7 +128,8 @@ class FastSyncTapS3Csv:
 
         # pylint:disable=protected-access
         # iterator = singer_encodings_csv.get_row_iterator(s3_file_handle._raw_stream, table_spec)
-        iterator = csv.DictReader(open(filepath))
+        encoding = 'utf-8'
+        iterator = csv.DictReader(open(filepath, encoding=encoding))
 
         records_copied = len(records)
 
