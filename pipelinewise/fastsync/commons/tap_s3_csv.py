@@ -105,7 +105,6 @@ class FastSyncTapS3Csv:
     def _get_file_records(self, s3_path: str, table_spec: Dict, records: List[Dict], headers: Set, temp_dir: str) -> None:
         """
         Reads the file in s3_path and inserts the rows in records
-        :param config: tap connection configuration
         :param s3_path: full path of file in S3 bucket
         :param table_spec: dict of table with its specs
         :param records: list into which to insert the rows from file
@@ -129,10 +128,11 @@ class FastSyncTapS3Csv:
 
         # pylint:disable=protected-access
         # iterator = singer_encodings_csv.get_row_iterator(s3_file_handle._raw_stream, table_spec)
+        iterator = csv.DictReader(open(filepath))
 
         records_copied = len(records)
 
-        for row in csv.DictReader(open(filepath)):
+        for row in iterator:
             now_datetime = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
             custom_columns = {
                 S3Helper.SDC_SOURCE_BUCKET_COLUMN: bucket,
