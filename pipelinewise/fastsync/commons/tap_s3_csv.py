@@ -377,8 +377,8 @@ class S3Helper:
             s3_client = boto3.resource('s3')
 
         s3_bucket = s3_client.Bucket(bucket)
+        s3_object = s3_bucket.Object(s3_path)
         if filepath:
-            s3_bucket.download_file(s3_path, filepath)
+            s3_object.download_file(filepath)
         else:
-            s3_object = s3_bucket.Object(s3_path)
             return s3_object.get()['Body']
