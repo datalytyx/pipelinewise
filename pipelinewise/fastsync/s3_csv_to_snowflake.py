@@ -61,7 +61,7 @@ def sync_table(table_name: str, args: Namespace) -> Union[bool, str]:
 
         target_schema = utils.get_target_schema(args.target, table_name)
 
-        s3_csv.copy_table(table_name, filepath, args.temp_dir)
+        s3_csv.copy_table(table_name, filepath, args.target.get('download_csv', False), args.temp_dir)
 
         snowflake_types = s3_csv.map_column_types_to_target(filepath, table_name)
         snowflake_columns = snowflake_types.get('columns', [])
