@@ -239,13 +239,14 @@ class Config:
             for table in schema.get('tables', []):
                 table_name = table.get('table_name')
                 replication_method = table.get('replication_method', utils.get_tap_default_replication_method(tap))
-                selection.append(utils.delete_empty_keys({
-                    'tap_stream_id': utils.get_tap_stream_id(tap, tap_dbname, schema_name, table_name),
-                    'replication_method': replication_method,
+                if replication_method != "IGNORE":
+                    selection.append(utils.delete_empty_keys({
+                        'tap_stream_id': utils.get_tap_stream_id(tap, tap_dbname, schema_name, table_name),
+                        'replication_method': replication_method,
 
-                    # Add replication_key only if replication_method is INCREMENTAL
-                    'replication_key': table.get('replication_key') if replication_method == 'INCREMENTAL' else None
-                }))
+                        # Add replication_key only if replication_method is INCREMENTAL
+                        'replication_key': table.get('replication_key') if replication_method == 'INCREMENTAL' else None
+                    }))
         tap_selection = {'selection': selection}
 
         # Generate tap transformation
