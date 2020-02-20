@@ -67,7 +67,7 @@
 (defn column->tap-stream-id [column]
   ;; This used to use format and hyphens but we changed it to underscore
   ;; and when the column is missing a key format would use "null"
-  (string/join "_" [(:table_cat column "null") (:table_schem column "null") (:table_name column "null")]))
+  (string/join "-" [(:table_cat column "null") (:table_schem column "null") (:table_name column "null")]))
 
 (defn column->catalog-entry
   [column]
