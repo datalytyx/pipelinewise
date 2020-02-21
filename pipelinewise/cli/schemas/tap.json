@@ -33,7 +33,8 @@
               "type": "string",
               "enum": [
                 "FULL_TABLE",
-                "LOG_BASED"
+                "LOG_BASED",
+                "IGNORE"
               ]
             },
             "transformations": {
