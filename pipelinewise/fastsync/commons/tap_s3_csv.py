@@ -136,7 +136,7 @@ class FastSyncTapS3Csv:
         # pylint:disable=protected-access
         if temp_dir:
             encoding = 'utf-8'
-            iterator = csv.DictReader(open(filepath, encoding=encoding))
+            iterator = csv.DictReader(open(filepath, encoding=encoding), delimiter=table_spec.get('delimiter', ','))
         else:
             iterator = singer_encodings_csv.get_row_iterator(s3_file_handle._raw_stream, table_spec)
 
