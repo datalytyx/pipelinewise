@@ -169,7 +169,7 @@ class FastSyncTapS3Csv:
         if filepath:
             os.remove(filepath)
 
-    def map_column_types_to_target(self, filepath: str, table: str):
+    def map_column_types_to_target(self, filepath: str, table: str, schema_override: List):
 
         csv_columns = self._get_table_columns(filepath)
 
@@ -186,6 +186,10 @@ class FastSyncTapS3Csv:
             else {[safe_column_name(c) for c in specs['date_overrides']]}
 
         for column_name, column_type in csv_columns:
+            for override_column in schema_override:
+                key = list(override_column.keys())[0]
+                if key.upper() == column_name.upper().strip('"'):
+                    column_type = override_column[key]
 
             if date_overrides and column_name in date_overrides:
                 mapped_columns.append(f"{column_name} 'timestamp_ntz'")

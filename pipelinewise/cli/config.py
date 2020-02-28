@@ -301,6 +301,7 @@ class Config:
             'hard_delete': tap.get('hard_delete', True),
             'flush_all_streams': tap.get('flush_all_streams', False),
             'download_csv': tap.get('download_csv'),
+            'override': tap.get('override'),
             'primary_key_required': tap.get('primary_key_required', True),
             'default_target_schema': tap.get('default_target_schema'),
             'default_target_schema_select_permissions': tap.get('default_target_schema_select_permissions'),

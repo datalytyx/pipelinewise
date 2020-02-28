@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import json
 import multiprocessing
 import os
 import sys
@@ -62,8 +62,17 @@ def sync_table(table_name: str, args: Namespace) -> Union[bool, str]:
         target_schema = utils.get_target_schema(args.target, table_name)
 
         s3_csv.copy_table(table_name, filepath, args.target.get('download_csv', False), args.temp_dir)
-
-        snowflake_types = s3_csv.map_column_types_to_target(filepath, table_name)
+        schema_override = []
+        if args.target.get('override'):
+            with open(args.target['override']) as file:
+                table_override = json.load(file)
+                schema_override = [{column['column']:column['data_type']} for table in table_override['table']
+                                   for column in table['schema_override']
+                                   if table['name'] == table_name]
+        snowflake_types = s3_csv.map_column_types_to_target(filepath, table_name, schema_override)
+        utils.log("Snowflake Columns Data type are:")
+        for column in snowflake_types['columns']:
+            utils.log(column)
         snowflake_columns = snowflake_types.get('columns', [])
         primary_key = snowflake_types['primary_key']
 
