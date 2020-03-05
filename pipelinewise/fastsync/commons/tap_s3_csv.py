@@ -171,7 +171,8 @@ class FastSyncTapS3Csv:
 
     def map_column_types_to_target(self, filepath: str, table: str):
 
-        csv_columns = self._get_table_columns(filepath)
+        csv_columns = self._get_table_columns(filepath, table)
+        table_spec = self._find_table_spec_by_name(table)
 
         specs = None
 
@@ -184,8 +185,12 @@ class FastSyncTapS3Csv:
         mapped_columns = []
         date_overrides = None if 'date_overrides' not in specs \
             else {[safe_column_name(c) for c in specs['date_overrides']]}
+        schema_override = {column['column_name'].upper(): column['conversion_type'] for column in
+                           table_spec.get('schema_overrides', [])}
 
         for column_name, column_type in csv_columns:
+            if column_name.upper().strip('"') in schema_override.keys():
+                column_type = schema_override[column_name.upper().strip('"')]
 
             if date_overrides and column_name in date_overrides:
                 mapped_columns.append(f"{column_name} 'timestamp_ntz'")
@@ -197,14 +202,18 @@ class FastSyncTapS3Csv:
             'primary_key': self._get_primary_keys(specs)
         }
 
-    def _get_table_columns(self, csv_file_path: str) -> zip:
+    def _get_table_columns(self, csv_file_path: str, table: str) -> zip:
         """
         Read the csv file and tries to guess the the type of each column using messytables library.
         The type can be 'Integer', 'Decimal', 'String' or 'Bool'
         :param csv_file_path: path to the csv file with content in it
         :return: a Zip object where each tuple has two elements: the first is the column name and the second is the type
         """
+        table_spec = self._find_table_spec_by_name(table)
         with gzip.open(csv_file_path, 'rb') as csvfile:
+            sample_rate = table_spec.get('sample_rate', 5)
+            max_records = table_spec.get('max_records', 1000)
+
             table_set = CSVTableSet(csvfile)
 
             row_set = table_set.tables[0]
@@ -212,9 +221,31 @@ class FastSyncTapS3Csv:
             offset, headers = headers_guess(row_set.sample)
             row_set.register_processor(headers_processor(headers))
 
-            row_set.register_processor(offset_processor(offset + 1))
+            sampling_offsets = []
+            current_offset = offset + 1
+            row_set.register_processor(offset_processor(current_offset))
+            for _ in row_set:
+                if len(sampling_offsets) >= max_records:
+                    break
+                if (current_offset - 1) % sample_rate == 0:
+                    sampling_offsets.append(current_offset)
+                current_offset += 1
 
-            types = list(map(jts.celltype_as_string, type_guess(row_set.sample, strict=True)))
+            all_types = {key: [] for key in headers}
+            for offset in sampling_offsets:
+                row_set.register_processor(offset_processor(offset))
+                row_type = list(map(jts.celltype_as_string, type_guess(row_set.sample, strict=True)))
+                for index, value in enumerate(row_type):
+                    all_types[headers[index]].append(value)
+            types = []
+            for header in headers:
+                if len(set(all_types[header])) == 1:
+                    types.append(all_types[header][0])
+                elif len(set(all_types[header])) == 2 and 'string' not in set(all_types[header]):
+                    types.append('number')
+                else:
+                    types.append('string')
+
             return zip(headers, types)
 
     # pylint: disable=invalid-name

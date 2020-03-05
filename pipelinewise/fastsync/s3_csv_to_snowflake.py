@@ -44,7 +44,7 @@ def tap_type_to_target_type(csv_type):
         'integer': 'INTEGER',
         'number': 'DOUBLE',
         'string': 'VARCHAR',
-        'boolean': 'VARCHAR',  # The guess sometimes can be wrong, we'll use varchar for now.
+        'boolean': 'INTEGER',
         'date': 'VARCHAR'  # The guess sometimes can be wrong, we'll use varchar for now.
     }.get(csv_type, 'VARCHAR')
 
@@ -64,6 +64,10 @@ def sync_table(table_name: str, args: Namespace) -> Union[bool, str]:
         s3_csv.copy_table(table_name, filepath, args.target.get('download_csv', False), args.temp_dir)
 
         snowflake_types = s3_csv.map_column_types_to_target(filepath, table_name)
+        utils.log("Snowflake Columns Data type are:")
+        for column in snowflake_types['columns']:
+            utils.log(column)
+
         snowflake_columns = snowflake_types.get('columns', [])
         primary_key = snowflake_types['primary_key']
 
