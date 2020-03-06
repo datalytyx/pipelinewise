@@ -90,6 +90,9 @@ install_connector() {
 
     cd $CONNECTOR_DIR
     make_virtualenv $1
+    if [ $1 == "tap-s3-csv" ]; then
+        apply_fix $1
+    fi
 }
 
 clone_connector() {
@@ -112,8 +115,9 @@ apply_fix() {
     cp $SRC_DIR/singer-connectors/$1/catalog.clj $VENV_DIR/$1/src/tap_mssql/
     cp $SRC_DIR/singer-connectors/$1/messages.clj $VENV_DIR/$1/src/tap_mssql/singer
   elif [ $1 == "tap-s3-csv" ]; then
-    PYTHON_VERSION = `ls -d *|head -n 1`
-    PACKAGE_NAME = ${1//-/_}
+    cd $VENV_DIR/$1/lib
+    PYTHON_VERSION=`ls -d *|head -n 1`
+    PACKAGE_NAME=${1//-/_}
     cp -a $SRC_DIR/singer-connectors/$1/files/. $VENV_DIR/$1/lib/$PYTHON_VERSION/site-packages/$PACKAGE_NAME/
   fi
 }
