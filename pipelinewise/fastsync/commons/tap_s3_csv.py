@@ -5,9 +5,10 @@ import re
 import sys
 from datetime import datetime
 from time import struct_time
-from typing import Callable, Dict, List, Optional, Set
+from typing import Callable, Dict, List, Optional, Set, OrderedDict
 
 import boto3
+import dateutil
 from botocore.credentials import DeferredRefreshableCredentials
 from messytables import (CSVTableSet, headers_guess, headers_processor, jts, offset_processor, type_guess)
 from singer.utils import strptime_with_tz
@@ -210,43 +211,69 @@ class FastSyncTapS3Csv:
         :return: a Zip object where each tuple has two elements: the first is the column name and the second is the type
         """
         table_spec = self._find_table_spec_by_name(table)
-        with gzip.open(csv_file_path, 'rb') as csvfile:
+        with gzip.open(csv_file_path, 'rt') as file:
+            csv_file = csv.DictReader(file)
             sample_rate = table_spec.get('sample_rate', 5)
             max_records = table_spec.get('max_records', 1000)
 
-            table_set = CSVTableSet(csvfile)
-
-            row_set = table_set.tables[0]
-
-            offset, headers = headers_guess(row_set.sample)
-            row_set.register_processor(headers_processor(headers))
-
-            sampling_offsets = []
-            current_offset = offset + 1
-            row_set.register_processor(offset_processor(current_offset))
-            for _ in row_set:
-                if len(sampling_offsets) >= max_records:
+            headers = csv_file.fieldnames
+            type_mapping = {header: {} for header in headers}
+            current_row = 0
+            sampled_row = 0
+            for row in csv_file:
+                if sampled_row >= max_records:
                     break
-                if (current_offset - 1) % sample_rate == 0:
-                    sampling_offsets.append(current_offset)
-                current_offset += 1
-
-            all_types = {key: [] for key in headers}
-            for offset in sampling_offsets:
-                row_set.register_processor(offset_processor(offset))
-                row_type = list(map(jts.celltype_as_string, type_guess(row_set.sample, strict=True)))
-                for index, value in enumerate(row_type):
-                    all_types[headers[index]].append(value)
-            types = []
-            for header in headers:
-                if len(set(all_types[header])) == 1:
-                    types.append(all_types[header][0])
-                elif len(set(all_types[header])) == 2 and 'string' not in set(all_types[header]):
-                    types.append('number')
-                else:
-                    types.append('string')
+                if current_row % sample_rate == 0:
+                    sampled_row += 1
+                    self._guess_datatype(type_mapping, row)
+                current_row += 1
+            types = self._pick_datatype(headers, type_mapping)
 
             return zip(headers, types)
+
+    def _guess_datatype(self, type_mapping: Dict, row: OrderedDict):
+        for key, value in row.items():
+            data_type = self._convert(value)
+            if data_type:
+                type_mapping[key][data_type] = type_mapping[key].get(data_type, 0) + 1
+
+    @staticmethod
+    def _convert(value):
+        if value is None or value == '':
+            return None
+
+        try:
+            _ = int(value)
+            return 'integer'
+        except (ValueError, TypeError):
+            pass
+
+        try:
+            _ = float(value)
+            return 'number'
+        except (ValueError, TypeError):
+            pass
+
+        try:
+            _ = dateutil.parser.parse(value)
+            return 'date-time'
+        except (ValueError, TypeError):
+            pass
+
+        return 'string'
+
+    @staticmethod
+    def _pick_datatype(headers: List, type_mapping: Dict):
+        types = []
+        for header in headers:
+            data_types = type_mapping[header]
+            if len(data_types) == 1:
+                types.append(list(data_types.keys())[0])
+            elif len(data_types) == 2 and 'string' not in data_types:
+                types.append('number')
+            else:
+                types.append('string')
+        return types
 
     # pylint: disable=invalid-name
     def fetch_current_incremental_key_pos(self, table: str,
