@@ -5,7 +5,7 @@ import re
 import sys
 from datetime import datetime
 from time import struct_time
-from typing import Callable, Dict, List, Optional, Set, OrderedDict
+from typing import Callable, Dict, List, Optional, Set
 
 import boto3
 import dateutil
@@ -230,7 +230,7 @@ class FastSyncTapS3Csv:
 
             return zip(headers, types)
 
-    def _guess_datatype(self, type_mapping: Dict, row: OrderedDict):
+    def _guess_datatype(self, type_mapping: Dict, row: Dict):
         for key, value in row.items():
             data_type = self._convert(value)
             if data_type:
