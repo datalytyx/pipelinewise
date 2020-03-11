@@ -30,7 +30,7 @@ setup(name='pipelinewise',
           'singer-python==5.9.*',
           'singer-encodings==0.0.*',
           'python-dateutil<2.8.1',
-          'messytables==0.15.*',
+          # 'messytables==0.15.*',
           'pytz==2018.4',
           'python-pidfile==3.0.0',
           'pre-commit==1.21.0'

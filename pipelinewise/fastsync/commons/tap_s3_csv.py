@@ -10,7 +10,6 @@ from typing import Callable, Dict, List, Optional, Set, OrderedDict
 import boto3
 import dateutil
 from botocore.credentials import DeferredRefreshableCredentials
-from messytables import (CSVTableSet, headers_guess, headers_processor, jts, offset_processor, type_guess)
 from singer.utils import strptime_with_tz
 from singer_encodings import csv as singer_encodings_csv
 
