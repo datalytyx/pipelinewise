@@ -136,37 +136,41 @@ class FastSyncTapS3Csv:
         # pylint:disable=protected-access
         if temp_dir:
             encoding = 'utf-8'
-            iterator = csv.DictReader(open(filepath, encoding=encoding), delimiter=table_spec.get('delimiter', ','),
-                                      quoting=csv.QUOTE_NONE)
+            iterator = csv.DictReader(open(filepath, encoding=encoding), delimiter=table_spec.get('delimiter', ','))
         else:
             iterator = singer_encodings_csv.get_row_iterator(s3_file_handle._raw_stream, table_spec)
 
         records_copied = len(records)
 
-        for row in iterator:
-            now_datetime = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
-            custom_columns = {
-                S3Helper.SDC_SOURCE_BUCKET_COLUMN: bucket,
-                S3Helper.SDC_SOURCE_FILE_COLUMN: s3_path,
-                S3Helper.SDC_SOURCE_LINENO_COLUMN: records_copied + 1,
-                '_SDC_EXTRACTED_AT': now_datetime,
-                '_SDC_BATCHED_AT': now_datetime,
-                '_SDC_DELETED_AT': None
-            }
+        try:
+            for row in iterator:
+                now_datetime = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+                custom_columns = {
+                    S3Helper.SDC_SOURCE_BUCKET_COLUMN: bucket,
+                    S3Helper.SDC_SOURCE_FILE_COLUMN: s3_path,
+                    S3Helper.SDC_SOURCE_LINENO_COLUMN: records_copied + 1,
+                    '_SDC_EXTRACTED_AT': now_datetime,
+                    '_SDC_BATCHED_AT': now_datetime,
+                    '_SDC_DELETED_AT': None
+                }
 
-            new_row = {}
+                new_row = {}
 
-            # make all columns safe
-            # pylint: disable=invalid-name
-            for k, v in row.items():
-                new_row[safe_column_name(k)] = v
+                # make all columns safe
+                # pylint: disable=invalid-name
+                for k, v in row.items():
+                    new_row[safe_column_name(k)] = v
 
-            record = {**new_row, **custom_columns}
+                record = {**new_row, **custom_columns}
 
-            records.append(record)
-            headers.update(record.keys())
+                records.append(record)
+                headers.update(record.keys())
 
-            records_copied += 1
+                records_copied += 1
+        except Exception as e:
+            message = f"\nError in row {records_copied + 1}(Line number {records_copied + 2})"
+            e.args = (e.args[0] + message,)
+            raise e
         if filepath:
             os.remove(filepath)
 
