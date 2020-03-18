@@ -10,6 +10,10 @@ CONFIG_CONTRACT = Schema([{
     Optional('search_prefix'): str,
     Optional('date_overrides'): [str],
     Optional('delimiter'): str,
+    Optional('default_datatype'): Any('string',
+                                      'integer',
+                                      'number',
+                                      'date-time'),
     Optional('schema_overrides'): [
         {
             Required('column_name'): str,

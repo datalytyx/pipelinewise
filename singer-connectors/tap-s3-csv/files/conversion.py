@@ -108,10 +108,14 @@ def generate_schema(samples: List[Dict], table_spec: Dict) -> Dict:
     """
     schema = {}
     counts = count_samples(samples)
+    default_datatype = table_spec.get('default_datatype')
     schema_override = {column['column_name']: column['conversion_type'] for column in
                        table_spec.get('schema_overrides', [])}
     for key, value in counts.items():
-        datatype = pick_datatype(value)
+        if default_datatype:
+            datatype = default_datatype
+        else:
+            datatype = pick_datatype(value)
 
         if datatype == 'date-time':
             schema[key] = {

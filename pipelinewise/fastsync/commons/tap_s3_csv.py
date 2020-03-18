@@ -187,8 +187,11 @@ class FastSyncTapS3Csv:
             else {[safe_column_name(c) for c in specs['date_overrides']]}
         schema_override = {column['column_name'].upper(): column['conversion_type'] for column in
                            table_spec.get('schema_overrides', [])}
+        default_datatype = table_spec.get('default_datatype')
 
         for column_name, column_type in csv_columns:
+            if default_datatype:
+                column_type = default_datatype
             if column_name.upper().strip('"') in schema_override.keys():
                 column_type = schema_override[column_name.upper().strip('"')]
 
